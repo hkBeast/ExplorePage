@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct ExplorePageView: View {
-    @StateObject var viewModel = ViewModel()
+    @StateObject var viewModel = AppViewModel()
+    @EnvironmentObject var cacheManager:ImageCacheManager
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Header Section with Explore Title and Icon Buttons
@@ -59,9 +60,3 @@ struct IconButton: View {
     }
 }
 
-// MARK: - Preview
-struct ExplorePageView_Previews: PreviewProvider {
-    static var previews: some View {
-        ExplorePageView()
-    }
-}

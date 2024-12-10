@@ -9,12 +9,9 @@ import SwiftUI
 
 // MARK: - Discover View
 struct DiscoverView: View {
-    @State private var searchText: String = ""
     @State private var selectedFilters: Set<String> = []
-    @EnvironmentObject var viewModel: ViewModel
-    
-    private let filters = ["All", "Trending", "Latest", "Popular", "Recommended"]
-    private let results = Array(1...20).map { "Item \($0)" }
+    @EnvironmentObject var viewModel: AppViewModel
+  
     private let gridLayout = [GridItem(.flexible()), GridItem(.flexible())]
     
     var body: some View {
@@ -26,56 +23,59 @@ struct DiscoverView: View {
                 .padding(.horizontal)
             
             // Search Bar
-            SearchBar(searchText: $searchText)
+            SearchBar()
+                .environmentObject(viewModel)
+                .frame(height: 60)
             
             // Filter Tabs
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack {
-                    // "All" filter
-                    FilterButton(text: "All", isSelected: selectedFilters.contains("All")) {
-                        toggleFilter("All")
-                    }
-                    
-                    // Other filters
-                    if let filters = viewModel.responseData?.problemFilter {
-                        ForEach(filters, id: \.self) { filter in
-                            FilterButton(
-                                text: filter.title,
-                                isSelected: selectedFilters.contains(filter.title)
-                            ) {
-                                toggleFilter(filter.title)
-                                viewModel.fetchDatawhere(filterSet: selectedFilters)
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal)
-            }
+            FilterTabsView(
+                selectedFilters: $selectedFilters,
+                responseFilters: viewModel.responseData?.problemFilter,
+                onFilterChange: { viewModel.fetchDatawhere(filterSet: selectedFilters) }
+            )
             
-            // Results Grid
-            if viewModel.isDataAvilable{
-                if let resultCardData = viewModel.filterData{
-                    ScrollView {
-                        LazyVGrid(columns: gridLayout, spacing: 16) {
-                            
-                            ForEach(resultCardData, id: \.self) { result in
-                                ResultCard(cardData: result)
-                            }
+            // Display state views
+            if viewModel.loadingState {
+                LoadingView()
+            } else if !viewModel.filterData.isEmpty {
+                ResultsGridView(resultCardData: viewModel.filterData, gridLayout: gridLayout, isPremiumUser: false)
+            } else {
+                NoDataView()
+            }
+        }
+    }
+}
+
+
+
+struct FilterTabsView: View {
+    @Binding var selectedFilters: Set<String>
+    var responseFilters: [FilterModel]?
+    var onFilterChange: () -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack {
+                // "All" filter
+                FilterButton(text: "All", isSelected: selectedFilters.contains("All")) {
+                    toggleFilter("All")
+                    onFilterChange()
+                }
+                
+                // Other filters
+                if let filters = responseFilters {
+                    ForEach(filters, id: \.self) { filter in
+                        FilterButton(
+                            text: filter.title,
+                            isSelected: selectedFilters.contains(filter.title)
+                        ) {
+                            toggleFilter(filter.title)
+                            onFilterChange()
                         }
-                        .padding(.horizontal)
-                    }
-                }else{
-                    ScrollView {
-                        LazyVGrid(columns: gridLayout, spacing: 16) {
-                            
-                            // show 6 grid items
-                        }
-                        .padding(.horizontal)
                     }
                 }
-            }else{
-                // show No Data is avilable with empty box
             }
+            .padding(.horizontal)
         }
     }
     
@@ -101,8 +101,50 @@ struct DiscoverView: View {
             }
         }
     }
-    
-    // MARK: - Filtered Results
- 
 }
 
+struct ResultsGridView: View {
+    var resultCardData: [ExploreData]
+    var gridLayout: [GridItem]
+    var isPremiumUser :Bool
+
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: gridLayout, spacing: 16) {
+                ForEach(resultCardData, id: \.self) { result in
+                    ResultCard(cardData: result, isPremium: isPremiumUser)
+                        .frame(width: 200)
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+}
+struct LoadingView: View {
+    var body: some View {
+        VStack {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle())
+            Text("Loading...")
+                .foregroundColor(.gray)
+                .font(.subheadline)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct NoDataView: View {
+    var body: some View {
+        VStack {
+            Image(systemName: "tray")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 100, height: 100)
+                .foregroundColor(.gray)
+            Text("No Data Available")
+                .font(.headline)
+                .foregroundColor(.gray)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
